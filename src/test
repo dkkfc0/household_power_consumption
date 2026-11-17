@@ -1,1 +1,81 @@
+rom pathlib import Path
+import pandas as pd
+
+path = Path("/Users/danklo/Downloads/household_power_consumption.txt")
+
+
+# Проверяем первую строку и предполагаемый разделитель, не меняя файл
+with path.open("r", encoding="latin1") as f:
+    first_line = f.readline().rstrip("\n\r")
+
+print("Первая строка:")
+print(first_line)
+print("\nЧисло ';' в первой строке:", first_line.count(";"))
+
+# Только 50 строк для первичной инспекции
+sample = pd.read_csv(
+    path,
+    sep=";",
+    header=0,
+    nrows=50,
+    dtype="string",
+    keep_default_na=False,
+    encoding="latin1",
+    decimal="."
+)
+
+display(sample.head())
+
+# Ищем явные маркеры пропусков в небольшом фрагменте
+markers = ["?", "NA", ""]
+marker_counts = pd.DataFrame({
+    marker if marker else "<пустая строка>":
+        sample.eq(marker).sum()
+    for marker in markers
+})
+
+display(marker_counts)
+
+na_values = ["?", "NA", ""]
+
+df = pd.read_csv(
+    path,
+    sep=";",
+    header=0,
+    na_values=na_values,
+    keep_default_na=True,
+    dtype={"Date": "string", "Time": "string"},
+    low_memory=False,
+    encoding="latin1",
+    decimal="."
+)
+
+# В pandas 3.x объединение Date + Time внутри parse_dates удалено,
+# поэтому создаём новый столбец и сохраняем исходные Date и Time.
+df["DateTime"] = pd.to_datetime(
+    df["Date"] + " " + df["Time"],
+    format="%d/%m/%Y %H:%M:%S",
+    errors="coerce"
+)
+
+print("Первые строки:")
+display(df.head())
+
+print("Форма таблицы:")
+print(df.shape)
+
+print("\nТипы столбцов:")
+display(df.dtypes.to_frame("dtype"))
+
+print("\nКоличество пропусков по столбцам:")
+display(df.isna().sum().to_frame("missing"))
+
+audit = pd.DataFrame({
+    "dtype": df.dtypes.astype(str),
+    "missing": df.isna().sum(),
+    "missing_%": (df.isna().mean() * 100).round(3)
+})
+
+display(audit)
+
 
